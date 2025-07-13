@@ -152,7 +152,8 @@ def calculate_iou(anchor_boxes, gt_boxes):
     iou= inter_area / (union_area + 1e-6)
     return iou
 
-def match_anchors_to_gt(anchor_boxes, gt_boxes, iou_high_threshold= 0.6, iou_low_threshold= 0.3, device= 'cpu'):
+def match_anchors_to_gt(anchor_boxes, gt_boxes, iou_high_threshold= 0.6, iou_low_threshold= 0.3, device= 'cpu',
+                        num_samples= 32, positive_ratio= 0.25):
     gt_boxes= filter_valid_bboxes(gt_boxes)
     num_anchors= anchor_boxes.shape[0]
     if gt_boxes.numel() == 0:
@@ -172,8 +173,21 @@ def match_anchors_to_gt(anchor_boxes, gt_boxes, iou_high_threshold= 0.6, iou_low
     for i in range(gt_boxes.shape[0]):
         best_anchor_idx= iou_matrix[:, i].argmax()
         labels[best_anchor_idx]= 1
-        
+    
     positive_indices= torch.where(labels == 1)[0]
+    negative_indices= torch.where(labels == 0)[0]
+    num_positive= int(num_samples * positive_ratio)
+    num_negative= num_samples - num_positive
+
+    if positive_indices.numel() > num_positive:
+        positive_indices= positive_indices[torch.randperm(positive_indices.numel())[:num_positive]]
+    if negative_indices.numel() > num_negative:
+        negative_indices= negative_indices[torch.randperm(negative_indices.numel())[:num_negative]]
+    sampled_indices= torch.cat([positive_indices, negative_indices])
+    labels= torch.full((num_anchors,), -1, dtype= torch.int32, device= device)
+    labels[sampled_indices]= 0
+    labels[positive_indices]= 1
+
     regression_targets= torch.zeros((num_anchors, 4), dtype= torch.float32, device= device)
     if positive_indices.numel() > 0:
         positive_anchors= anchor_boxes[positive_indices]
