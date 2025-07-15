@@ -18,10 +18,10 @@ def draw_image_with_box(image_tensor, bounding_boxes_tensor):
     np_boxes= bounding_boxes_tensor.detach().cpu().numpy()
     for box in np_boxes:
         xmin, ymin, xmax, ymax= box
-        xmin= int(xmin * image_width)
-        ymin= int(ymin * image_height)
-        xmax= int(xmax * image_width)
-        ymax= int(ymax * image_height)
+        xmin= int(xmin)
+        ymin= int(ymin)
+        xmax= int(xmax)
+        ymax= int(ymax)
         display_image= cv2.rectangle(np_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
     plt.figure(figsize= (10,5))
     plt.axis('off')
@@ -42,19 +42,19 @@ def visualize_anchors_and_gt(image, anchors, gt_boxes):
     # Draw anchors
     for anchor in anchors:
         xmin, ymin, xmax, ymax= anchor
-        xmin= int(xmin * image_width)
-        ymin= int(ymin * image_height)
-        xmax= int(xmax * image_width)
-        ymax= int(ymax * image_height)
-        cv2.rectangle(np_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)  # Green for anchors
+        xmin= int(xmin)
+        ymin= int(ymin)
+        xmax= int(xmax)
+        ymax= int(ymax)
+        cv2.rectangle(np_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 1)  # Green for anchors
 
     # Draw ground truth boxes
     for box in gt_boxes:
         xmin, ymin, xmax, ymax= box
-        xmin= int(xmin * image_width)
-        ymin= int(ymin * image_height)
-        xmax= int(xmax * image_width)
-        ymax= int(ymax * image_height)
+        xmin= int(xmin)
+        ymin= int(ymin)
+        xmax= int(xmax)
+        ymax= int(ymax)
         cv2.rectangle(np_image, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)  # Red for ground truth
 
     # Display the image
