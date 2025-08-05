@@ -51,7 +51,7 @@ The Implementation processes video in real-time, displaying bounding boxes and c
 https://github.com/user-attachments/assets/46ce1832-1244-40d4-add1-9e965627a5ea
 
 
-## Anchgor Visualization
+## Anchor Visualization
 Visualization of anchor boxes (green) overlaid on ground truth boxes (red) to demonstrate the anchor generation process and matching strategy.
 <img width="981" height="814" alt="image" src="https://github.com/user-attachments/assets/476e17aa-b032-4494-8589-4615ba578740" />
 <img width="910" height="811" alt="image" src="https://github.com/user-attachments/assets/edc2b780-4e0f-4beb-b2c7-1cab289d25ac" />
@@ -120,4 +120,5 @@ The dataset used can be found <a href="https://www.kaggle.com/datasets/fareselme
 2. **Multi-class Detection**: Extend the model to detect multiple object classes beyond faces.
 3. **Real-time Video Processing**: Optimize the pipeline for streaming video applications.
 4. **Deployment**: Create a web API and mobile application for the face detection model.
+
 
