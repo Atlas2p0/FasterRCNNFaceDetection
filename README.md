@@ -1,4 +1,4 @@
-<img width="910" height="811" alt="image" src="https://github.com/user-attachments/assets/d52fee26-968a-4eaa-8dac-5d866332e4dd" /><img width="910" height="811" alt="image" src="https://github.com/user-attachments/assets/28c6bb23-a27e-4df0-a12e-2f0577b82daa" /># Project overview
+# Project overview
 This project implements Faster R-CNN for face detection from first principles, including:
 * Region Proposal Network (RPN) for generating object proposals
 * Region of Interest (ROI) head for classifying and refining proposals
@@ -120,3 +120,4 @@ The dataset used can be found <a href="https://www.kaggle.com/datasets/fareselme
 2. **Multi-class Detection**: Extend the model to detect multiple object classes beyond faces.
 3. **Real-time Video Processing**: Optimize the pipeline for streaming video applications.
 4. **Deployment**: Create a web API and mobile application for the face detection model.
+
