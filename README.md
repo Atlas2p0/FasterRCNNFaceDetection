@@ -65,6 +65,7 @@ Visualization of anchor boxes (green) overlaid on ground truth boxes (red) to de
 | Training      | 0.0154     | 0.0147          | 0.0006          | -              |
 | Validation    | 0.0265     | 0.0253          | 0.0012          | 83%            |
 | Test (Unseen) | 0.0293     | 0.0279          | 0.0014          | 80%            |
+<img width="1185" height="917" alt="image" src="https://github.com/user-attachments/assets/15d3dd20-52cc-471b-a9c5-9f5fb5cd367c" />
 
 ## Region of Interest (ROI) Head Performance
 | Dataset       | Total Loss | Classification Loss | Regression Loss | Precision | Recall@0.4 IoU | mAP   |
@@ -72,6 +73,7 @@ Visualization of anchor boxes (green) overlaid on ground truth boxes (red) to de
 | Training      | 0.2111     | 0.2077              | 0.0035          | -         | -              | -     |
 | Validation    | 0.2228     | 0.2192              | 0.0036          | 95.1%     | 46.5%          | 76.3% |
 | Test (Unseen) | 0.2199     | 0.2164              | 0.0036          | 90.8%     | 45.2%          | 74.6% |
+<img width="1171" height="825" alt="image" src="https://github.com/user-attachments/assets/8c19e939-1f3d-4503-b002-66e278e19cf7" />
 
 ## Real-Time Inference Speed
 | Hardware       | FPS  |
@@ -120,5 +122,6 @@ The dataset used can be found <a href="https://www.kaggle.com/datasets/fareselme
 2. **Multi-class Detection**: Extend the model to detect multiple object classes beyond faces.
 3. **Real-time Video Processing**: Optimize the pipeline for streaming video applications.
 4. **Deployment**: Create a web API and mobile application for the face detection model.
+
 
 
