@@ -3,3 +3,4 @@ data/
 artifacts/*.pth
 __pycache__/
 test_vids/
+face_detection_env/

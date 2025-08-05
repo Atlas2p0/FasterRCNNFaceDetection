@@ -4,10 +4,31 @@ import matplotlib.patches as patches
 import cv2
 import torch
 from torchvision.ops import nms
+from preprocessing import apply_deltas_to_boxes, clamp_boxes_to_img_boundary
+import torch.nn.functional as F
 
 def draw_image_with_box(image_tensor, bounding_boxes_tensor):
+    """
+    Draws bounding boxes on an image and displays the result.
+    
+    This function takes a tensor representing an image and a tensor of bounding boxes,
+    converts them to appropriate formats, draws the bounding boxes on the image, and
+    displays the result using matplotlib. The function handles tensor-to-numpy conversion,
+    normalization, and ensures the image is in the correct format for OpenCV operations.
+    
+    Args:
+        image_tensor (torch.Tensor): Tensor representing the image with shape (C, H, W)
+                                   where C is the number of channels (typically 3 for RGB).
+        bounding_boxes_tensor (torch.Tensor): Tensor of bounding boxes with shape (N, 4)
+                                            where each row is (xmin, ymin, xmax, ymax).
+    
+    Returns:
+        None: The function displays the image with bounding boxes using matplotlib.
+    """
+    # Convert tensor image to numpy and transpose dims from (C, H, W) to (H, W, C) for visualization
     np_image= image_tensor.detach().cpu().numpy()
     np_image= np.transpose(np_image, (1, 2, 0))
+
     if np_image.max() > 1.0:
         np_image= np_image / 255.0
 
@@ -39,6 +60,24 @@ def de_normalize(tensor):
     return tensor
 
 def visualize_anchors_and_gt(image_tensor, anchors, gt_boxes):
+    """
+    Visualizes anchor boxes and ground truth boxes on an image.
+    
+    This function creates a visualization that overlays anchor boxes (in green) and 
+    ground truth boxes (in red) on an input image. This is useful for understanding 
+    the anchor box generation process and how they relate to ground truth annotations 
+    in object detection models.
+    
+    Args:
+        image_tensor (torch.Tensor): Input image tensor with shape (C, H, W) in normalized form.
+        anchors (torch.Tensor or numpy.ndarray): Anchor boxes with shape (N, 4) where each row
+                                              represents (x1, y1, x2, y2) coordinates.
+        gt_boxes (torch.Tensor or numpy.ndarray): Ground truth boxes with shape (M, 4) where each row
+                                                represents (x1, y1, x2, y2) coordinates.
+    
+    Returns:
+        None: The function displays the visualization using matplotlib.
+    """
     # Convert image tensor to NumPy
     img_to_show = de_normalize(image_tensor).permute(1, 2, 0).cpu().numpy()
 
@@ -60,80 +99,103 @@ def visualize_anchors_and_gt(image_tensor, anchors, gt_boxes):
         rect = patches.Rectangle((x1, y1), width, height, linewidth=2, edgecolor='r', facecolor='none')
         ax.add_patch(rect)
 
-    plt.title("Anchors (Green) and Ground Truth (Red)")
+    plt.title("Anchors/Proposals (Green) and Ground Truth (Red)")
     plt.axis("off")
     plt.show()
 
-def decode_predictions(all_anchors, cls_logits, reg_deltas,
-                       pre_nms_topk= 1000, post_nms_topk= 300,
-                       cls_score_threshold= 0.93, nms_threshold= 0.7):
-    scores= torch.sigmoid(cls_logits.squeeze(-1))
-    deltas= reg_deltas
 
-    width_anchors= all_anchors[:, 2] - all_anchors[:, 0]
-    height_anchors= all_anchors[:, 3] - all_anchors[:, 1]
-    x_anchors= all_anchors[:, 0] + width_anchors / 2
-    y_anchors= all_anchors[:, 1] + height_anchors / 2
 
-    dx, dy, dw, dh= deltas[:, 0], deltas[:, 1], deltas[:, 2], deltas[:, 3]
-    x_prop= dx * width_anchors + x_anchors
-    y_prop= dy * height_anchors + y_anchors
-    width_prop= torch.exp(dw) * width_anchors
-    height_prop= torch.exp(dh) * height_anchors
-    proposals= torch.stack([x_prop - width_prop / 2,
-                            y_prop - height_prop / 2,
-                            x_prop + width_prop / 2,
-                            y_prop + height_prop / 2], dim= 1)
-    keep= scores >= cls_score_threshold
+@torch.no_grad()
+def roi_head_inference(features, proposals, image_shape, roi_head, score_thresh= 0.5, nms_thresh= 0.2):
+    """
+    Performs inference using the Region of Interest (ROI) head to generate final object detections.
+    
+    This function processes region proposals through the ROI head to obtain class predictions and
+    bounding box refinements. It then applies score thresholding and Non-Maximum Suppression (NMS)
+    to produce the final set of detections. The function is a key component in two-stage object
+    detectors like Faster R-CNN, where it refines proposals from the Region Proposal Network (RPN).
+    
+    Args:
+        features (torch.Tensor): Feature map tensor with shape (batch, channels, height, width)
+                                extracted by the backbone network.
+        proposals (torch.Tensor): Tensor of region proposals with shape (N, 4) where each row
+                                 represents (x1, y1, x2, y2) coordinates.
+        image_shape (tuple): Shape of the input image as (height, width).
+        roi_head (nn.Module): The ROI head module that processes proposals to generate class
+                             predictions and bounding box refinements.
+        score_thresh (float, optional): Confidence threshold for filtering detections. Only
+                                      detections with scores above this threshold are kept.
+                                      Default is 0.5.
+        nms_thresh (float, optional): IoU threshold for Non-Maximum Suppression. Detections
+                                     with IoU above this threshold are considered duplicates
+                                     and only the one with the highest score is kept.
+                                     Default is 0.1.
+    
+    Returns:
+        tuple: A tuple containing:
+            - pred_boxes (torch.Tensor): Final bounding box predictions with shape (M, 4)
+                                        where M is the number of detections after filtering.
+            - scores (torch.Tensor): Confidence scores for the final detections with shape (M,).
+    """
+
+    # Use RoI to predict cls_logits and bounding box deltas
+    roi_out= roi_head(features, [proposals], [image_shape], gt_boxes= None)
+    cls_logits= roi_out['cls_logits']
+    bbox_deltas= roi_out['bbox_deltas']
+
+    # Print range of class logits for debugging/monitoring purposes
+    # This helps understand the distribution of raw_scores
+    print("cls_logits range:", cls_logits.min().item(), cls_logits.max().item())
+    # Apply softmax to convert logits to probabilities
+    scores= F.softmax(cls_logits, dim= 1)[:, 1]
+
+    print(scores.max())
+    # Apply deltas to proposals and ensure they are within image boundaries
+    pred_boxes= apply_deltas_to_boxes(proposals, bbox_deltas)
+    pred_boxes= clamp_boxes_to_img_boundary(pred_boxes, image_shape)
+
+    # Filter proposals based on score threshold
+    keep= scores > score_thresh
+    pred_boxes= pred_boxes[keep]
     scores= scores[keep]
-    proposals= proposals[keep]
+    # Apply Non-Maximum Suppression to remove overlapping detections
+    keep= nms(pred_boxes, scores, nms_thresh)
+    return pred_boxes[keep], scores[keep]
 
-    if scores.numel() > pre_nms_topk:
-        topk= torch.topk(scores, pre_nms_topk).indices
-        scores= scores[topk]
-        proposals= proposals[topk]
-    keep= nms(proposals, scores, nms_threshold)[:post_nms_topk]
-    return scores[keep], proposals[keep]
-
-def bbox_transform(anchors, gt_boxes):
-    width_anchors= anchors[:, 2] - anchors[:, 0]
-    height_anchors= anchors[:, 3] - anchors[:, 1]
-    x_anchors= anchors[:, 0] + width_anchors / 2
-    y_anchors= anchors[:, 1] + height_anchors / 2
-
-    width_gts= gt_boxes[:, 2] - gt_boxes[:, 0]
-    height_gts= gt_boxes[:, 3] - gt_boxes[:, 1]
-    x_gts= gt_boxes[:, 0] + width_gts / 2
-    y_gts= gt_boxes[:, 1] + height_gts / 2
-
-    dx= (x_gts - x_anchors) / width_anchors
-    dy= (y_gts - y_anchors) / height_anchors
-    dw= torch.log(width_gts / width_anchors)
-    dh= torch.log(height_gts / height_anchors)
-
-    return torch.stack([dx, dy, dw, dh], dim= 1)
-
-def smooth_l1_loss(pred_reg, targets, beta= 1.0):
-    diff= torch.abs(pred_reg - targets)
-    loss= torch.where(diff < beta, 0.5 * diff ** 2 / beta, diff - 0.5 * beta)
-    return loss.mean(dim= 1)
-
-def decode_deltas(boxes, deltas):
-    widths  = boxes[:, 2] - boxes[:, 0]
-    heights = boxes[:, 3] - boxes[:, 1]
-    ctr_x   = boxes[:, 0] + widths / 2
-    ctr_y   = boxes[:, 1] + heights / 2
-
-    dx, dy, dw, dh = deltas[:, 0], deltas[:, 1], deltas[:, 2], deltas[:, 3]
-
-    pred_ctr_x = dx * widths + ctr_x
-    pred_ctr_y = dy * heights + ctr_y
-    pred_w     = torch.exp(dw) * widths
-    pred_h     = torch.exp(dh) * heights
-
-    return torch.stack([
-        pred_ctr_x - pred_w / 2,
-        pred_ctr_y - pred_h / 2,
-        pred_ctr_x + pred_w / 2,
-        pred_ctr_y + pred_h / 2
-    ], dim=1)
+@torch.no_grad()
+def generate_proposals(images, image_shapes, backbone, rpn_model):
+    """
+    Generates region proposals using a backbone network and Region Proposal Network (RPN).
+    
+    This function processes input images through a backbone network to extract features,
+    then passes these features to an RPN model to generate region proposals. The function
+    uses mixed precision training (autocast) for improved performance and efficiency.
+    The proposals are truncated to the top 512 for each image to limit the number of
+    proposals passed to subsequent stages.
+    
+    Args:
+        images (torch.Tensor): Batch of input images with shape (batch_size, channels, height, width).
+        image_shapes (list): List of image shapes as (height, width) tuples for each image in the batch.
+        backbone (nn.Module): Backbone neural network (e.g., ResNet, VGG) that extracts features
+                             from the input images.
+        rpn_model (nn.Module): Region Proposal Network that takes features and generates
+                              object proposals.
+    
+    Returns:
+        tuple: A tuple containing:
+            - proposals (list): List of proposal tensors, one per image. Each tensor has shape
+                               (num_proposals, 4) where num_proposals is at most 512, and each
+                               row represents (x1, y1, x2, y2) coordinates.
+            - features (torch.Tensor): Feature maps extracted by the backbone with shape
+                                      (batch_size, channels, feature_height, feature_width).
+    
+    Note:
+        The function uses torch.cuda.amp.autocast() for automatic mixed precision, which
+        can improve performance and reduce memory usage on compatible GPUs.
+    """
+    features= backbone(images)
+    with torch.cuda.amp.autocast():
+      rpn_out= rpn_model(feat= features, image_shapes= image_shapes, gt_boxes= None)
+    proposals= [p[:512] for p in rpn_out['proposals']]
+    
+    return proposals, features
