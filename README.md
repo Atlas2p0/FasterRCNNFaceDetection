@@ -15,33 +15,7 @@ This project implements Faster R-CNN for face detection from first principles, i
  * **Dynamic Batch Sizing**: Automatically adjusts batch size based on processing time to maintain target FPS
  * **Modular Design**: Clean separation of components for easy understanding and extension
 
-# Project Structure
-``` text
-faster-rcnn-scratch/
-├── models/
-│   ├── __init__.py
-│   ├── backbone.py          # Feature extraction backbone
-│   ├── rpn.py               # Region Proposal Network
-│   ├── roi_head.py          # ROI classification and regression
-│   └── faster_rcnn.py       # Complete Faster R-CNN model
-├── dataset/
-│   ├── __init__.py
-│   └── face_dataset.py      # Dataset handling
-├── utils/
-│   ├── __init__.py
-│   ├── anchors.py           # Anchor generation and utilities
-│   ├── box_utils.py         # Bounding box operations
-│   └── visualization.py     # Visualization tools
-├── video_processing/
-│   ├── __init__.py
-│   ├── async_processor.py   # Asynchronous frame processing
-│   └── video_processor.py   # Video processing pipeline
-├── configs/
-│   └── config.py            # Configuration parameters
-├── requirements.txt
-├── main.py                  # Main entry point
-└── README.md
-```
+
 # Project Showcase
 
 ## Real-time Object Detection
@@ -122,6 +96,7 @@ The dataset used can be found <a href="https://www.kaggle.com/datasets/fareselme
 2. **Multi-class Detection**: Extend the model to detect multiple object classes beyond faces.
 3. **Real-time Video Processing**: Optimize the pipeline for streaming video applications.
 4. **Deployment**: Create a web API and mobile application for the face detection model.
+
 
 
 
